@@ -10,36 +10,45 @@ start_str = start_date.strftime('%Y-%m-%d')
 end_str = end_date.strftime('%Y-%m-%d')
 
 try:
-    # Create ticker objects
+    # Create ticker objects with the original tickers
     print("Creating ticker objects...")
-    sp500 = yf.Ticker("SPY")  # S&P 500 ETF
-    dxy = yf.Ticker("UUP")    # Dollar Index ETF proxy
+    sp500 = yf.Ticker("^GSPC")  # S&P 500 Index
+    dxy = yf.Ticker("DX-Y.NYB")  # US Dollar Index
     
     # Get historical data using the history() method
-    print("Getting historical data for SPY...")
+    print("Getting historical data for S&P 500...")
     sp500_data = sp500.history(start=start_str, end=end_str)
     
     # Add delay to avoid rate limiting
     time.sleep(2)
     
-    print("Getting historical data for UUP...")
+    print("Getting historical data for DXY...")
     dxy_data = dxy.history(start=start_str, end=end_str)
     
     # Check if we have data
-    if sp500_data.empty or dxy_data.empty:
-        print("One or both datasets are empty. Try different tickers or dates.")
-        exit(1)
+    if sp500_data.empty:
+        print("S&P 500 data is empty. Falling back to SPY ETF...")
+        sp500 = yf.Ticker("SPY")
+        sp500_data = sp500.history(start=start_str, end=end_str)
+        
+    if dxy_data.empty:
+        print("DXY data is empty. Falling back to UUP ETF...")
+        dxy = yf.Ticker("UUP")
+        dxy_data = dxy.history(start=start_str, end=end_str)
     
+    # Check again after fallback
+    if sp500_data.empty or dxy_data.empty:
+        print("Still couldn't retrieve data. Please check your connection and try again.")
+        exit(1)
+        
     # Create combined dataframe
     combined_data = pd.DataFrame()
     
     # Convert datetime index to timezone-naive by converting to string and back to datetime
-    # This removes timezone information from the index
     combined_data['Date'] = pd.to_datetime(sp500_data.index.strftime('%Y-%m-%d'))
     combined_data['SP500_Close'] = sp500_data['Close'].values
     
     # Create a temporary dataframe for DXY data
-    # Again converting to timezone-naive datetime
     dxy_df = pd.DataFrame({
         'Date': pd.to_datetime(dxy_data.index.strftime('%Y-%m-%d')),
         'DXY_Close': dxy_data['Close'].values
